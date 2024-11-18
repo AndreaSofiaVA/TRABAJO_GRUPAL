@@ -1,0 +1,570 @@
+---
+title: "ENTREGABLE 3"
+author: "Avalos, Ariana y Andrea Valverde"
+date: "2024-11-13"
+output: html_document
+---
+
+```{r}
+library(rio)
+edu=import("Educacion.xls")
+emple=import("empleo.xls")
+tec=import("tecnologia.xls")
+vivi=import("vivienda.xls")
+salud=import("salud.xls")
+```
+
+```{r}
+library(dplyr)
+summary(edu)
+```
+```{r}
+library(scales)
+edu = edu %>%
+  mutate(i_edu = round(rescale(matricula_edu22, to = c(0, 5)),0))
+```
+
+```{r}
+summary(salud)
+```
+```{r}
+salud$desnut21_rec = 51-salud$desnut21 + 2.5
+summary(salud)
+```
+
+
+```{r}
+salud = salud %>%
+  mutate(i_salud = round(rescale(desnut21, to = c(0, 5)),0))
+```
+
+```{r}
+library(dplyr)
+salud <- salud %>%
+  mutate(i_salud = case_when( i_salud == 0 ~ 5,
+                            i_salud == 1 ~ 4,
+                            i_salud == 2 ~ 3,
+                            i_salud == 3 ~ 2,
+                            i_salud== 4 ~ 1,
+                            i_salud == 5 ~ 0))
+```
+
+
+```{r}
+summary(tec)
+```
+```{r}
+tec = tec %>%
+  mutate(i_tec = round(rescale(telef_fija22, to = c(0, 5)),0))
+```
+
+```{r}
+summary(vivi)
+```
+```{r}
+vivi = vivi %>%
+  mutate(i_vivi = round(rescale(por_elec22, to = c(0, 5)),0))
+```
+
+```{r}
+summary(emple)
+```
+
+```{r}
+# Aplicar el logaritmo natural
+emple$f_laboral22_log <- log(emple$f_laboral22)
+```
+
+```{r}
+summary(emple$f_laboral22_log)
+```
+
+```{r}
+emple = emple %>%
+  mutate(i_emple = round(rescale(f_laboral22_log, to = c(0, 5)),0))
+```
+
+# CREANDO NUEVO DATAFRAME
+
+```{r}
+emple_columna <- emple[, c("Country Name", "i_emple")]
+edu_columna <- edu[, c("Country Name", "i_edu")]
+salud_columna <- salud[, c("Country Name", "i_salud")]
+tec_columna <- tec[, c("Country Name", "i_tec")]
+vivi_columna <- vivi[, c("Country Name", "i_vivi")]
+```
+
+## MERGE
+
+```{r}
+edu_emple=merge(edu_columna,emple_columna,by="Country Name")
+ edu_emple
+```
+```{r}
+ee_tec=merge(edu_emple,tec_columna,by="Country Name")
+ ee_tec
+```
+
+```{r}
+eet_vivi=merge(ee_tec,vivi_columna,by="Country Name")
+ eet_vivi
+```
+
+```{r}
+indicador=merge(eet_vivi,salud_columna,by="Country Name")
+ indicador
+```
+
+## FILTRO DE DATOS QUE QUEREMOS
+
+```{r}
+# Define los nombres específicos que deseas seleccionar
+nombres_especificos <- c("Albania","Andorra","Austria","Belarús","Bélgica","Bosnia y Herzegovina","Bulgaria","Croacia","Chipre","República Checa","Dinamarca","Estonia","Finlandia","Francia","Alemania","Grecia","Hungría","Islandia","Irlanda","Italia","Kosovo","Letonia","Liechtenstein","Lituania","Luxemburgo","Malta","República de Moldova","Mónaco","Montenegro","Países Bajos","Macedonia del Norte","Noruega","Polonia","Portugal","Rumania","San Marino","Serbia","República Eslovaca","Eslovenia","España","Suecia", "Suiza","Ucrania", "Reino Unido", "Argentina","Bolivia","Brasil","Chile","Colombia","Ecuador","Guyana","Paraguay","Perú","Suriname","Uruguay","Venezuela","Guatemala","México","Panamá","Costa Rica","Nicaragua","Honduras","El Salvador","Belice","Cuba","República Dominicana","Haití")
+
+# Filtra la base de datos 'indicador' usando la columna 'names country'
+indicador_filtrado <- subset(indicador, `Country Name` %in% nombres_especificos)
+
+# Muestra el data frame filtrado
+print(indicador_filtrado)
+```
+
+```{r}
+indicador_filtrado=indicador_filtrado %>%
+  mutate(suma = rowSums(select(., i_edu, i_salud, i_emple, i_tec, i_vivi), na.rm = TRUE))
+```
+
+```{r}
+indicador_filtrado <- indicador_filtrado %>%
+  rename(PAIS = `Country Name`)
+```
+
+
+#IMPORTANDO DATA
+
+```{r}
+EU_AL=import("EU_AL.xlsx")
+```
+
+```{r}
+str(EU_AL)
+```
+```{r}
+EU_AL <- EU_AL %>%
+  mutate(across(c(PBI_perk, tasa_infla), as.numeric))
+```
+```{r}
+str(EU_AL)
+```
+
+
+```{r}
+data=merge(indicador_filtrado,EU_AL,by="PAIS")
+ data
+```
+
+```{r}
+data =data|>
+  mutate(cod_rpol = case_when(
+    reg_pol == "Democracia parlamentaria" ~ 1,
+    reg_pol == "Republica presidencial" ~ 2,
+    reg_pol == "Monarquia constitucional" ~ 3,
+    reg_pol == "Republica federal" ~ 4,
+    reg_pol == "Republica parlamentaria federal" ~ 5,
+    reg_pol == "Republica parlamentaria" ~ 6,
+    reg_pol == "Republica semipresidencial" ~ 7,
+    reg_pol == "Estado comunista" ~ 8
+  ))
+head(data)
+```
+
+```{r}
+data =data|>
+  mutate(cod_cam = case_when(
+    cam == "unicameral" ~ 1,
+    cam == "bicameral" ~ 2,
+  ))
+head(data)
+```
+
+```{r}
+data =data|>
+  mutate(cod_CONTINENTE = case_when(
+    CONTINENTE == "Europa" ~ 1,
+    CONTINENTE == "America Latina" ~ 2
+  ))
+head(data)
+```
+
+```{r}
+str(data)
+```
+
+```{r}
+library(writexl)
+write_xlsx(data, "data_completa.xlsx")
+```
+
+
+```{r}
+summary(data$suma, na.rm=T)
+```
+
+```{r}
+Desc_data = data %>% 
+  summarise(
+    Media = mean(data$suma,na.rm=T), 
+    Mediana = median(data$suma,na.rm=T), 
+    Desviacion = sd(data$suma,na.rm=T), 
+    Minimo = min(data$suma,na.rm=T), 
+    Maximo = max(data$suma,na.rm=T),
+    Q1 = quantile(data$suma, 0.25,na.rm=T),
+    Q3 = quantile(data$suma, 0.75,na.rm=T))
+```
+
+```{r}
+library(knitr)
+kable(Desc_data, caption = "Analisis Descriptivo del puntaje por calidad de vida segun pais")
+```
+
+```{r}
+library(ggplot2)
+data %>% 
+  ggplot(aes(x = PAIS, y = suma)) + 
+  geom_bar(stat = "identity", color = "blue", fill = "#00BFFF", width = 0.6) + 
+  ggtitle("Puntaje de calidad de vida según país") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8))
+```
+```{r}
+ggplot(data, aes(x=reorder(PAIS,suma), y=suma), fill = select) + 
+  geom_bar(stat = "identity", width = 0.8) +
+  coord_flip()+
+  
+  labs(title = "Puntaje de calidad de vida por País",
+       subtitle = "Europa y Latinoamérica",
+       x = " ",
+       y = "Escala 0 - 25") +
+
+    geom_hline(yintercept = mean(data$suma) ,linetype="dashed", color="blue",size=1)+
+  
+    ylim(0, 25) +
+
+    geom_text(aes(label=paste0(round(suma,0),"%")), vjust=0.5, hjust = 1.2,color="green", size=2)+
+  theme(axis.text.y = element_text(size = 5),  plot.margin = margin(2, 2, 2, 2))
+```
+
+
+
+
+
+```{r}
+data =data|>
+  mutate(cal_vida = case_when(
+    suma < 5 ~ "Muy Baja",
+    suma >= 5 & suma < 10 ~ "Baja",
+    suma >= 10 & suma < 15 ~ "Media",
+    suma >= 15 & suma < 20 ~ "Alta",
+    suma >= 20 ~ "Muy Alta"
+  ))
+head(data)
+```
+```{r}
+data =data|>
+  mutate(cod_cvida = case_when(
+    cal_vida == "Muy Baja" ~ 1,
+    cal_vida == "Baja" ~ 2,
+    cal_vida == "Media" ~ 3,
+    cal_vida == "Alta" ~ 4,
+    cal_vida == "Muy Alta" ~ 5
+  ))
+head(data)
+```
+
+```{r}
+library(ggplot2)
+ggplot(data, aes(x = factor(cal_vida, levels = c("Muy Baja", "Baja", "Media", "Alta", "Muy Alta")), 
+                 y = suma, 
+                 color = cal_vida)) + 
+  geom_boxplot() + 
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.6) +  # Agrega los puntos
+  theme_classic() + 
+  expand_limits(y = c(0, 25)) +  # Ajusta el rango de valores en el eje Y
+  ggtitle("Boxplot de la Suma por Calificación de Vida") +  # Título
+  xlab("Nivel de Calidad de Vida") +  # Etiqueta eje X
+  ylab("Suma")  # Etiqueta eje Y
+
+```
+
+```{r}
+data %>% 
+  ggplot(aes(x = factor(cal_vida, levels = c("Muy Baja", "Baja", "Media", "Alta", "Muy Alta")))) + 
+  geom_bar(aes(fill = cal_vida), color = "black") +  # Asignar colores distintos por nivel
+  ggtitle("Conteo de calificación de vida por nivel") +  # Título
+  xlab("Nivel de Calificación de Vida") +  # Etiqueta eje X
+  ylab("Conteo") +  # Etiqueta eje Y
+  scale_fill_manual(values = c("Muy Baja" = "#FF6347",  # Rojo
+                              "Baja" = "#FF8C00",    # Naranja
+                              "Media" = "#FFD700",   # Amarillo
+                              "Alta" = "#32CD32",    # Verde
+                              "Muy Alta" = "#1E90FF")) +  # Azul
+  theme_minimal() +  # Tema minimalista
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotar etiquetas del eje X
+```
+```{r}
+str(data)
+```
+
+```{r}
+data$cod_rpol <- factor(data$cod_rpol)
+data$cod_cam  <- factor(data$cod_cam)
+data$cod_CONTINENTE <- factor(data$cod_CONTINENTE)
+data$cod_cvida <- factor(data$cod_cvida)
+```
+
+```{r}
+str(data)
+```
+
+# ASOCIACIÓN/CORRELACIÓN 
+
+## RELACIÓN ENTRE VARIABLES NUM - NUM: PEARSON
+
+VARIABLES:
+* Suma (dependiente)
+* Pobla
+* PBI_perk
+* tasa_infla
+* div_admi
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data, aes(x=pobla, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+
+```{r}
+f1=formula(~ pobla + suma )
+```
+
+```{r}
+library(dplyr)
+pearsonf1=cor.test(f1,data=data)[c('estimate','p.value')]
+pearsonf1
+```
+Interpretación: La variable "suma" y la variable "pobla" se encuentra una correlación debido a que el p - value es menor a 0.05 y la fuerza de la correlación es moderada y directa que quiere decir que las dos variables van en el mismo sentido: si una variable aumenta, la otra también. 
+
+p - value: si hay correlación --> si es mayor a 0.05 no hay correlación entre las variables 
+cor: fuerza de la correlación
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data, aes(x=PBI_perk, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+
+
+```{r}
+f2=formula(~ PBI_perk + suma )
+```
+
+```{r}
+pearsonf2=cor.test(f2,data=data)[c('estimate','p.value')]
+pearsonf2
+```
+Interpretación: La variable "suma" y la variable "PBI_perk" no se encuentra correlación debido a que el p - value es mayor a 0.05. 
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data, aes(x=tasa_infla, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+
+```{r}
+f3=formula(~ tasa_infla + suma )
+```
+
+```{r}
+pearsonf3=cor.test(f3,data=data)[c('estimate','p.value')]
+pearsonf3
+```
+Interpretación: La variable "suma" y la variable "tasa_infla" no se encuentra correlación debido a que el p - value es mayor a 0.05. 
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data, aes(x=div_admi, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+```{r}
+f4=formula(~ div_admi + suma )
+```
+
+```{r}
+pearsonf4=cor.test(f4,data=data)[c('estimate','p.value')]
+pearsonf4
+```
+Interpretación: La variable "suma" y la variable "div_admi" no se encuentra correlación debido a que el p - value es mayor a 0.05. 
+
+## RELACIÓN ENTRE VARIABLES NUM - CAT: 
+
+```{r}
+base=ggplot(data=data, aes(x=reg_pol, y=suma))
+base + geom_boxplot(notch = T) +  geom_jitter(color="black", size=0.4, alpha=0.9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+f5=formula(suma~reg_pol)
+```
+
+
+
+### Prueba de normalidad
+
+```{r}
+base=ggplot(data=data, aes(x=CONTINENTE, y=suma))
+base + geom_boxplot(notch = T) +  geom_jitter(color="black", size=0.4, alpha=0.9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+f6=formula(suma~CONTINENTE)
+
+tablag= aggregate(f6, data,
+          FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
+
+shapiroTest=as.data.frame(tablag[,2])
+names(shapiroTest)=c("W","Prob")
+shapiroTest
+```
+
+```{r}
+(student_T=t.test(f6,data=data)[c('estimate','p.value')])
+```
+
+```{r}
+(Mann_Whitnery=wilcox.test(f6,data=data,exact=F)['p.value'])
+```
+
+
+```{r}
+base=ggplot(data=data, aes(x=cam, y=suma))
+base + geom_boxplot(notch = T) +  geom_jitter(color="black", size=0.4, alpha=0.9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+```{r}
+f7=formula(suma~cam)
+
+tablag2= aggregate(f7, data,
+          FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
+
+
+shapiroTest=as.data.frame(tablag2[,2])
+names(shapiroTest)=c("W","Prob")
+shapiroTest
+```
+
+```{r}
+(student_T=t.test(f7,data=data)[c('estimate','p.value')])
+```
+
+```{r}
+(Mann_Whitnery=wilcox.test(f7,data=data,exact=F)['p.value'])
+```
+
+
+# MODELO LINEAL MULTIPLE
+
+```{r}
+modelo_lmultiple <- lm(suma ~ pobla + PBI_perk + tasa_infla + div_admi, data = data)
+
+summary(modelo_lmultiple)
+
+```
+
+# MODELO LOGÍSTICO MULTINOMIAL
+
+```{r}
+library(nnet)
+mod_lgmulti <- multinom(cod_cvida ~ pobla + PBI_perk + tasa_infla + div_admi, data = data)
+summary(mod_lgmulti)
+```
+
+
+# MODELOS DE CLUSTERIZACIÓN
+
+```{r}
+names(data)
+```
+
+```{r}
+cor(data[, c(7, 11, 12, 13, 14)], use = "pairwise.complete.obs")
+```
+```{r}
+dataClus=data[, c(7, 11, 12, 13, 14)]
+row.names(dataClus)=data$PAIS
+```
+
+```{r}
+library(cluster)
+g.dist <- daisy(dataClus, metric = "gower")
+```
+
+```{r}
+set.seed(123)
+library(factoextra)
+
+res.agnes<- hcut(g.dist, k = 5,hc_func='agnes',hc_method = "ward.D")
+
+dataClus$agnes=res.agnes$cluster
+
+# ver
+
+head(dataClus,15)%>%kbl()%>%kable_styling()
+```
+
+
+```{r}
+# Visualize
+fviz_dend(res.agnes, cex = 0.5, horiz = T,main = "")
+```
+
+```{r}
+fviz_silhouette(res.agnes,print.summary = F)
+```
+
+```{r}
+silAGNES=data.frame(res.agnes$silinfo$widths)
+silAGNES$country=row.names(silAGNES)
+poorAGNES=silAGNES[silAGNES$sil_width<0,'PAIS']%>%sort()
+poorAGNES
+```
+
+```{r}
+aggregate(.~ agnes, data=dataClus,mean)
+```
+
+```{r}
+data|>
+  count(cal_vida)
+```
+
+```{r}
+data|>
+  count(CONTINENTE,cal_vida)
+```
+
+
+
+
+

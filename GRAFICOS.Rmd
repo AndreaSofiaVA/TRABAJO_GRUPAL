@@ -1,0 +1,177 @@
+---
+title: "América Latina vs Europa"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(rio)
+data_sd =import("data_fd.xlsx")
+```
+
+DATOS GENERALES {data-icon="fa-sharp-duotone fa-solid fa-location-dot"}
+===================================== 
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Puntaje de calidad de vida según país (0 - 25)
+
+```{r}
+library(ggplot2)
+library(dplyr)
+data_sd %>% 
+  ggplot(aes(x = PAIS, y = suma)) + 
+  geom_bar(stat = "identity", color = "blue", fill = "#00BFFF", width = 0.6) + 
+  ggtitle("Puntaje de calidad de vida según país") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8))
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Boxplot de los países analizados según nivel de calidad de vida
+
+```{r}
+library(ggplot2)
+ggplot(data_sd, aes(x = factor(cal_vida, levels = c("Muy Baja", "Baja", "Media", "Alta", "Muy Alta")), 
+                 y = suma, 
+                 color = cal_vida)) + 
+  geom_boxplot() + 
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.6) +  
+  theme_classic() + 
+  expand_limits(y = c(0, 25)) +  
+  ggtitle("Boxplot de la Suma por Calificación de Vida") +  
+  xlab("Nivel de Calidad de Vida") +  
+  ylab("Suma")  
+```
+
+### Variación entre Europa y América Latina
+
+```{r}
+base=ggplot(data=data_sd, aes(x=CONTINENTE, y=suma))
+base + geom_boxplot(notch = T) +  geom_jitter(color="black", size=0.4, alpha=0.9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+RELACIONES VARIABLES NUM {data-icon="fa-sharp-duotone fa-solid fa-chart-scatter"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Relación entre el puntaje de calidad de vida y la densidad poblacional
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data_sd, aes(x=pobla, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+
+### Relación entre el PBI per cápita y el puntaje de calidad de vida
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data_sd, aes(x=PBI_perk, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Relación entre la tasa de inflación (%) y el puntaje de calidad de vida 
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data_sd, aes(x=tasa_infla, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+
+### Relación entre la división administrativa territorial y el puntaje de calidad de vida
+
+```{r}
+library(ggrepel)
+base=ggplot(data=data_sd, aes(x=div_admi, y=suma))
+scatter = base + geom_point()
+scatterText = scatter + geom_text_repel(aes(label=PAIS),size=2)
+scatterText
+```
+
+RELACIONES VARIABLES NUM - CAT {data-icon="faVectorPolygon"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Relación entre el régimen político y el puntaje de calidad de vida
+
+```{r}
+base=ggplot(data=data_sd, aes(x=reg_pol, y=suma))
+base + geom_boxplot(notch = T) +  geom_jitter(color="black", size=0.4, alpha=0.9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Relación entre la estructura legislativa y el puntaje de calidad de vida
+
+```{r}
+base=ggplot(data=data_sd, aes(x=cam, y=suma))
+base + geom_boxplot(notch = T) +  geom_jitter(color="black", size=0.4, alpha=0.9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+CLUSTER {data-icon="fa-solid fa-sitemap"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Gráfico
+
+```{r}
+cor(data_sd[, c(7, 11, 12, 13, 14)], use = "pairwise.complete.obs")
+```
+
+```{r}
+dataClus=data_sd[, c(7, 11, 12, 13, 14)]
+row.names(dataClus)=data_sd$PAIS
+```
+
+```{r}
+library(cluster)
+g.dist <- daisy(dataClus, metric = "gower")
+```
+
+```{r}
+set.seed(123)
+library(factoextra)
+res.agnes<- hcut(g.dist, k = 5,hc_func='agnes',hc_method = "ward.D")
+dataClus$agnes=res.agnes$cluster
+```
+
+```{r}
+fviz_dend(res.agnes, cex = 0.5, horiz = T,main = "")
+```
+
+Column {data-width=500} 
+-----------------------------------------------------------------------
+
+### Gráfico
+
+```{r}
+fviz_silhouette(res.agnes,print.summary = F)
+```
+
