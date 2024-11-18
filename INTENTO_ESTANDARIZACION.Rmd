@@ -1,0 +1,229 @@
+---
+title: "Entregable3_corregido"
+output: html_document
+date: "2024-11-16"
+---
+
+```{r}
+library(rio)
+edu=import("Educacion.xls")
+emple=import("empleo.xls")
+tec=import("tecnologia.xls")
+vivi=import("vivienda.xls")
+salud=import("salud.xls")
+```
+
+```{r}
+library(dplyr)
+summary(salud)
+```
+
+```{r}
+salud$desnut21_rec = 51-salud$desnut21 + 2.5
+summary(salud)
+```
+
+
+```{r}
+library(dplyr)
+summary(edu)
+```
+```{r}
+summary(tec)
+```
+```{r}
+summary(vivi)
+```
+```{r}
+summary(emple)
+```
+```{r}
+# Aplicar el logaritmo natural
+emple$f_laboral22_log <- log(emple$f_laboral22)
+summary(emple)
+```
+```{r}
+salud_apoyo <- salud[, c("Country Name", "desnut21_rec")]
+emple_apoyo <- emple[, c("Country Name", "f_laboral22_log")]
+```
+
+# MERGE
+```{r}
+edu_emple=merge(edu,emple_apoyo,by="Country Name")
+ edu_emple
+```
+```{r}
+ee_tec=merge(edu_emple,tec,by="Country Name")
+ ee_tec
+```
+```{r}
+eet_vivi=merge(ee_tec,vivi,by="Country Name")
+ eet_vivi
+```
+```{r}
+indicador=merge(eet_vivi,salud_apoyo,by="Country Name")
+ indicador
+```
+
+```{r}
+# Define los nombres específicos que deseas seleccionar
+nombres_especificos <- c("Albania","Andorra","Austria","Belarús","Bélgica","Bosnia y Herzegovina","Bulgaria","Croacia","Chipre","República Checa","Dinamarca","Estonia","Finlandia","Francia","Alemania","Grecia","Hungría","Islandia","Irlanda","Italia","Kosovo","Letonia","Liechtenstein","Lituania","Luxemburgo","Malta","República de Moldova","Mónaco","Montenegro","Países Bajos","Macedonia del Norte","Noruega","Polonia","Portugal","Rumania","San Marino","Serbia","República Eslovaca","Eslovenia","España","Suecia", "Suiza","Ucrania", "Reino Unido", "Argentina","Bolivia","Brasil","Chile","Colombia","Ecuador","Guyana","Paraguay","Perú","Suriname","Uruguay","Venezuela","Guatemala","México","Panamá","Costa Rica","Nicaragua","Honduras","El Salvador","Belice","Cuba","República Dominicana","Haití")
+
+# Filtra la base de datos 'indicador' usando la columna 'names country'
+indicador_filtrado <- subset(indicador, `Country Name` %in% nombres_especificos)
+
+# Muestra el data frame filtrado
+print(indicador_filtrado)
+```
+```{r}
+datos_std <- as.data.frame(scale(indicador_filtrado[, c("matricula_edu22", "f_laboral22_log","telef_fija22","por_elec22","desnut21_rec")]))
+print(datos_std)
+```
+
+```{r}
+# Agregar columnas estandarizadas al data frame original
+indicador_filtrado$i_edu <- as.vector(scale(indicador_filtrado$matricula_edu22))
+indicador_filtrado$i_emple <- as.vector(scale(indicador_filtrado$f_laboral22_log))
+indicador_filtrado$i_tec <- as.vector(scale(indicador_filtrado$telef_fija22))
+indicador_filtrado$i_vivi <- as.vector(scale(indicador_filtrado$por_elec22))
+indicador_filtrado$i_salud <- as.vector(scale(indicador_filtrado$desnut21_rec))
+
+# Ver el resultado
+print(indicador_filtrado)
+
+```
+
+```{r}
+data_std <- indicador_filtrado[, c("Country Name", "i_edu","i_emple","i_tec","i_vivi","i_salud")]
+```
+
+```{r}
+data_std <- data_std %>%
+  rename(PAIS = `Country Name`)
+```
+
+# ANÁLISIS FACTORIAL 
+
+```{r}
+library(polycor)
+corMatrix=polycor::hetcor(datos_std)$correlations
+```
+
+```{r}
+round(corMatrix,2)
+```
+```{r}
+library(ggcorrplot)
+ggcorrplot(corMatrix)
+```
+```{r}
+library(psych)
+psych::KMO(corMatrix) 
+```
+```{r}
+cortest.bartlett(corMatrix,n=nrow(datos_std))$p.value>0.05
+```
+
+```{r}
+library(matrixcalc)
+is.singular.matrix(corMatrix)
+```
+
+```{r}
+fa.parallel(datos_std, fa = 'fa',correct = T,plot = F)
+```
+
+```{r}
+library(GPArotation)
+resfa <- fa(datos_std,
+            nfactors = 1,
+            cor = 'mixed',
+            rotate = "varimax", #oblimin?
+            fm="minres")
+print(resfa$loadings)
+```
+```{r}
+fa.diagram(resfa,main = "Resultados del EFA")
+```
+
+
+
+
+```{r}
+EU_AL=import("EU_AL.xlsx")
+```
+
+```{r}
+str(EU_AL)
+```
+
+```{r}
+EU_AL <- EU_AL %>%
+  mutate(across(c(PBI_perk, tasa_infla), as.numeric))
+```
+```{r}
+str(EU_AL)
+```
+```{r}
+data=merge(data_std,EU_AL,by="PAIS")
+ data
+```
+
+```{r}
+names(data)
+```
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
