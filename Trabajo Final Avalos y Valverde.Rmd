@@ -1,0 +1,732 @@
+---
+title: "Trabajo Final Avalos y Valverde"
+author: "Valverde, Andrea"
+date: "2024-11-25"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r}
+library(rio)
+edu=import("Educacion.xls")
+emple=import("desempleo.xls")
+tec=import("tecnologia.xls")
+vivi=import("saneamiento.xls")
+salud=import("mortalidad.xls")
+```
+
+```{r}
+library(dplyr)
+summary(salud)
+```
+
+```{r}
+salud$mortalidad_rec = 65.208-salud$mortalidad + 1.284
+summary(salud)
+```
+
+```{r}
+library(dplyr)
+summary(edu)
+```
+
+```{r}
+summary(tec)
+```
+
+```{r}
+summary(vivi)
+```
+
+```{r}
+summary(emple)
+```
+
+```{r}
+emple$empleo_rec = 37.852-emple$empleo + 0.130
+summary(emple)
+```
+
+```{r}
+salud_apoyo <- salud[, c("Country Name", "mortalidad_rec")]
+emple_apoyo <- emple[, c("Country Name", "empleo_rec")]
+```
+
+# MERGE
+
+```{r}
+edu_emple=merge(edu,emple_apoyo,by="Country Name")
+ edu_emple
+```
+
+```{r}
+ee_tec=merge(edu_emple,tec,by="Country Name")
+ ee_tec
+```
+
+```{r}
+eet_vivi=merge(ee_tec,vivi,by="Country Name")
+ eet_vivi
+```
+
+```{r}
+indicador=merge(eet_vivi,salud_apoyo,by="Country Name")
+ indicador
+```
+
+```{r}
+indicador <- indicador %>%
+  rename(PAIS = `Country Name`)
+```
+
+```{r}
+str(indicador)
+```
+
+```{r}
+
+nombres_especificos <- c("Albania","Andorra","Austria","Belarús","Bélgica","Bosnia y Herzegovina","Bulgaria","Croacia","Chipre","República Checa","Dinamarca","Estonia","Finlandia","Francia","Alemania","Grecia","Hungría","Islandia","Irlanda","Italia","Kosovo","Letonia","Liechtenstein","Lituania","Luxemburgo","Malta","República de Moldova","Mónaco","Montenegro","Países Bajos","Macedonia del Norte","Noruega","Polonia","Portugal","Rumania","San Marino","Serbia","República Eslovaca","Eslovenia","España","Suecia", "Suiza","Ucrania", "Reino Unido", "Argentina","Bolivia","Brasil","Chile","Colombia","Ecuador","Guyana","Paraguay","Perú","Suriname","Uruguay","Venezuela","Guatemala","México","Panamá","Costa Rica","Nicaragua","Honduras","El Salvador","Belice","Cuba","República Dominicana","Haití")
+
+indicador_filtrado <- subset(indicador, `PAIS` %in% nombres_especificos)
+print(indicador_filtrado)
+```
+
+```{r}
+str (indicador_filtrado)
+```
+
+# ESTANDARIZACIÓN DE DATOS
+
+```{r}
+datos_std <- as.data.frame(scale(indicador_filtrado[, c("matricula_edu22", "empleo_rec","telef_fija22","saneamiento","mortalidad_rec")]))
+print(datos_std)
+```
+
+```{r}
+datos_std <- na.omit(datos_std)
+indicador_filtrado <- na.omit(indicador_filtrado)
+```
+
+```{r}
+library(dplyr)
+indicador_filtrado |> 
+  summarise ( ds_laboral = sd (empleo_rec),
+             ds_educacion =sd(matricula_edu22),
+             ds_salud =sd (mortalidad_rec),
+             ds_vivienda = sd (saneamiento),
+             ds_tecnologia =sd (telef_fija22))
+```
+
+```{r}
+library(psych)
+library(ggplot2)
+library(corrplot)
+```
+
+## PRUEBAS
+
+```{r}
+kmo_result <- KMO(datos_std)
+print(kmo_result)
+```
+
+```{r}
+bartlett_result <- cortest.bartlett(cor(datos_std), n = nrow(datos_std))
+print(bartlett_result)
+```
+
+# GRÁFICO DE CORRELACIÓN - ANÁLISIS FACTORIAL
+
+```{r}
+library(corrplot)
+cor_matrix <- cor(datos_std)
+corrplot(cor_matrix, 
+         method = "color", 
+         col = colorRampPalette(c("white", "purple", "pink"))(200), 
+         addCoef.col = "black",  # Números en color negro
+         tl.col = "black",       # Etiquetas en color negro
+         cl.lim = c(-1, 1),      # Escala de colores entre -1 y 1
+         number.cex = 0.7)       # Tamaño de los números
+
+```
+
+```{r}
+cortest.bartlett(cor_matrix,n=nrow(datos_std))$p.value>0.05
+```
+
+```{r}
+library(matrixcalc)
+is.singular.matrix(cor_matrix)
+```
+
+```{r}
+fa_parallel <- fa.parallel(datos_std, fm = "ml", fa = "fa")
+```
+
+```{r}
+fa.parallel(datos_std, fa = 'fa',correct = T,plot = F)
+```
+
+```{r}
+fa_result <- fa(datos_std, nfactors = 1, rotate = "varimax", fm = "ml")
+print(fa_result)
+```
+
+```{r}
+print(fa_result$loadings,cutoff = 0.5)
+```
+
+```{r}
+fa.diagram(fa_result,main = "Resultados del EFA")
+```
+
+Mayor aporte a factores:
+
+```{r}
+sort(fa_result$communality)
+```
+
+Contribución a la construcción de más de un factor:
+
+```{r}
+sort(fa_result$complexity)
+```
+
+Tucker Lewis
+
+```{r}
+fa_result$TLI
+```
+
+RMS
+
+```{r}
+fa_result$rms
+```
+
+RMSEA
+
+```{r}
+fa_result$RMSEA
+```
+
+BIC
+
+```{r}
+fa_result$BIC
+```
+
+OBTENCIÓN DE ÍNDICES: calcular dos índices que resuman los dos factores
+
+```{r}
+as.data.frame(fa_result$scores)%>%head()
+```
+
+```{r}
+# normalizando
+library(BBmisc)
+```
+
+```{r}
+summary(datos_std)
+```
+
+```{r}
+factor_scores <- factor.scores(datos_std, fa_result)
+datos_std$factor_score <- factor_scores$scores
+```
+
+```{r}
+# Agregar columnas estandarizadas al data frame original
+indicador_filtrado$i_edu <- datos_std$matricula_edu22
+indicador_filtrado$i_emple <- datos_std$empleo_rec
+indicador_filtrado$i_tec <- datos_std$telef_fija22
+indicador_filtrado$i_vivi <- datos_std$saneamiento
+indicador_filtrado$i_salud <- datos_std$mortalidad_rec
+indicador_filtrado$cal_vida <- datos_std$factor_score
+```
+
+# INSERCIÓN DE VARIABLES INDEPENDIENTES - MERGE
+
+```{r}
+library(rio)
+EU_AL=import("EU_AL.xlsx")
+```
+
+```{r}
+str(EU_AL)
+```
+
+```{r}
+EU_AL <- EU_AL %>%
+  mutate(across(c(PBI_perk, tasa_infla), as.numeric))
+```
+
+```{r}
+str(EU_AL)
+```
+
+```{r}
+data=merge(indicador_filtrado,EU_AL,by="PAIS")
+ data
+```
+
+```{r}
+data <- na.omit(data)
+```
+
+```{r}
+data$cam <- factor(data$cam, levels = c("unicameral", "bicameral"))
+str(data$cam)
+```
+
+```{r}
+table(data$cam)
+```
+
+```{r}
+data$reg_pol <- factor(data$reg_pol, levels = c("Democracia parlamentaria","Republica presidencial","Monarquia constitucional",  "Republica federal","Republica parlamentaria federal", "Republica parlamentaria", "Republica semipresidencial", "Estado comunista"))
+str(data$reg_pol)
+```
+
+```{r}
+table(data$reg_pol)
+```
+
+```{r}
+summary(data$cal_vida)
+```
+
+```{r}
+library(DescTools)
+
+allStats=c(summary(data$cal_vida),
+  sd=sd(data$cal_vida),
+  skew=Skew(data$cal_vida),
+  kurt=Kurt(data$cal_vida),
+  cv=CoefVar(data$cal_vida))
+allStats
+```
+
+```{r}
+library(ggplot2)
+
+barras_vida=ggplot(data=data,
+            aes(x=cal_vida))
+histogram= barras_vida + geom_histogram(aes(y = after_stat(density)),
+                 colour = 1, fill = "plum",bins=10) +  
+    stat_function(fun = dnorm,
+                  args = list(mean = allStats['Mean'],
+                              sd = allStats['sd']),col='red')
+    
+histogram
+```
+
+```{r}
+library(ggplot2)
+
+boxvida <- ggplot(data = data, aes(y = cal_vida))
+
+boxplot <- boxvida + 
+  geom_boxplot(fill = "lightblue", color = "purple") + 
+  geom_hline(aes(yintercept = mean(cal_vida)), color = "orange", linetype = "dashed", size = 1) +  # Media
+  theme_minimal() +  # Tema minimalista
+  theme(
+    panel.background = element_rect(fill = "lightgray", color = "lightgray"),  # Fondo gris suave
+    plot.background = element_rect(fill = "lavender", color = "lavender"),  # Fondo  fuera del gráfico
+    axis.text = element_text(color = "black"),  # Colores de las letras y números en azul oscuro
+    axis.title = element_text(color = "darkblue")  # Títulos de los ejes en azul oscuro
+  )
+
+boxplot
+
+```
+
+```{r}
+library(ggplot2)
+data |>
+  ggplot(aes(x = PAIS, y = cal_vida, fill = factor(PAIS))) +
+  geom_bar(stat = "identity", color = "blue", width = 0.6) + 
+  ggtitle("Puntaje de calidad de vida según país") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8)) +
+  viridis::scale_fill_viridis(discrete = TRUE) +  
+  theme(legend.position = "none")
+
+```
+
+```{r}
+library(ggplot2)
+
+data |>
+  ggplot(aes(x = PAIS, y = cal_vida, fill = factor(PAIS))) +  
+  geom_bar(stat = "identity", color = "blue", width = 0.6) + 
+  ggtitle("Puntaje de calidad de vida según país") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8)) +
+  viridis::scale_fill_viridis(discrete = TRUE) +  
+  theme(
+    legend.position = "bottom",  
+    legend.key.size = unit(0.25, "cm"), 
+    legend.title = element_blank(), 
+    legend.text = element_text(size = 5)  
+  )
+
+```
+
+# CLUSTER
+
+```{r}
+str(data)
+```
+
+```{r}
+names(data)
+```
+
+```{r}
+dataClus=data[,c(12,16, 17, 18, 19)]
+row.names(dataClus)=data$PAIS
+```
+
+```{r}
+dataClus$cal_vida <- as.numeric(dataClus$cal_vida)
+```
+
+```{r}
+library(cluster)
+g.dist = daisy(dataClus, metric="gower")
+```
+
+## ESTRATEGIA DE PARTICIÓN
+
+### PAM
+
+```{r}
+library(factoextra)
+fviz_nbclust(dataClus, pam,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F)
+```
+
+## ESTRATEGIA JERÁRQUICA
+
+### AGNES
+
+```{r}
+
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "agnes")
+```
+
+### DIANA
+
+```{r}
+
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "diana")
+```
+
+# ANÁLISIS DE CORRELACIÓN ENTRE VARIABLES NUMÉRICAS
+
+## calidad de vida con pobla
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+
+base1 <- ggplot(data = data, aes(x = cal_vida, y = pobla))
+
+scatter <- base1 + 
+  geom_point(aes(color = PAIS), size = 2)  
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  # Etiquetas de color
+
+scatterText + theme(legend.position = "none")
+```
+
+```{r}
+f1=formula(~cal_vida + pobla)
+```
+
+```{r}
+pearsonf1=cor.test(f1,data=data)[c('estimate','p.value')]
+pearsonf1
+```
+
+```{r}
+spearmanf1=cor.test(f1,data=data,method='spearman',exact=F)[c('estimate','p.value')]
+spearmanf1
+```
+
+## calidad de vida y PBI per cápita
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+base2 <- ggplot(data = data, aes(x = cal_vida, y = PBI_perk))
+
+scatter <- base2 + 
+  geom_point(aes(color = PAIS), size = 2) 
+
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  
+scatterText + theme(legend.position = "none")
+
+```
+
+```{r}
+f2=formula(~cal_vida + PBI_perk)
+```
+
+```{r}
+pearsonf2=cor.test(f2,data=data)[c('estimate','p.value')]
+pearsonf2
+```
+
+```{r}
+spearmanf2=cor.test(f2,data=data,method='spearman',exact=F)[c('estimate','p.value')]
+spearmanf2
+```
+
+## calidad de vida y tasa de inflación
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+base3 <- ggplot(data = data, aes(x = cal_vida, y = tasa_infla))
+
+
+scatter <- base3 + 
+  geom_point(aes(color = PAIS), size = 2)  
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  
+scatterText + theme(legend.position = "none")
+
+```
+
+```{r}
+f3=formula(~ cal_vida  + tasa_infla )
+```
+
+```{r}
+pearsonf3=cor.test(f3,data=data)[c('estimate','p.value')]
+pearsonf3
+```
+
+```{r}
+spearmanf3=cor.test(f3,data=data,method='spearman',exact=F)[c('estimate','p.value')]
+spearmanf3
+```
+
+## calidad de vida y división administrativa
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+base4 <- ggplot(data = data, aes(x = cal_vida, y = div_admi))
+
+
+scatter <- base4 + 
+  geom_point(aes(color = PAIS), size = 2)  
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  
+scatterText + theme(legend.position = "none")
+
+```
+
+```{r}
+f4=formula(~ cal_vida + div_admi )
+```
+
+```{r}
+pearsonf4=cor.test(f4,data=data)[c('estimate','p.value')]
+pearsonf4
+```
+
+```{r}
+spearmanf4=cor.test(f4,data=data,method='spearman',exact=F)[c('estimate','p.value')]
+spearmanf4
+```
+
+# ANÁLISIS DE CORRELACIÓN ENTRE VARIABLE NUMÉRICA CON CATEGÓRICA
+
+```{r}
+str(data)
+```
+
+## calidad de vida con régimen político
+
+```{r}
+library(ggplot2)
+library(viridis)
+
+base5 <- ggplot(data = data, aes(x = reg_pol, y = cal_vida, fill = reg_pol, color = reg_pol))
+
+base5 + 
+  geom_boxplot(notch = TRUE, alpha = 0.5) +  
+  geom_jitter(size = 0.4, alpha = 0.9, width = 0.2) + 
+  scale_fill_viridis(discrete = TRUE, option = "B", alpha = 0.5) +  
+  scale_color_viridis(discrete = TRUE, option = "B") +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none")
+```
+
+```{r}
+f5=formula(cal_vida~reg_pol)
+```
+
+## calidad de vida con estructura legislativa
+
+```{r}
+library(ggplot2)
+library(RColorBrewer)
+
+colores_fill <- c("lightblue", "lightyellow") 
+colores_bordes <- c("darkblue", "gold")  
+
+base6 <- ggplot(data = data, aes(x = cam, y = cal_vida, fill = cam))
+
+base6 + 
+  geom_boxplot(notch = TRUE, aes(color = cam), alpha = 0.5, size = 0.5) + 
+  geom_jitter(aes(color = cam), size = 2, alpha = 0.9) +  
+  scale_fill_manual(values = colores_fill) +  
+  scale_color_manual(values = colores_bordes) +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+f6=formula(cal_vida~cam)
+```
+
+```{r}
+(student_T=t.test(f6,data=data)[c('estimate','p.value')])
+```
+
+```{r}
+(Mann_Whitnery=wilcox.test(f6,data=data,exact=F)['p.value'])
+```
+
+## calidad de vida con continente
+
+```{r}
+library(ggplot2)
+
+base7 <- ggplot(data = data, aes(x = CONTINENTE, y = cal_vida))
+
+base7 + 
+  geom_boxplot(notch = TRUE, aes(fill = CONTINENTE, color = CONTINENTE), alpha = 0.6, size = 0.5) +  
+  geom_jitter(aes(color = CONTINENTE), size = 1, alpha = 0.9, width = 0.2, stroke = 1.2) +  
+  scale_fill_manual(values = c("pink", "plum")) +  
+  scale_color_manual(values = c("#D5006D", "#6A1B9A")) +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none")  
+
+
+```
+
+```{r}
+f7=formula(cal_vida~CONTINENTE)
+```
+
+```{r}
+(student_T=t.test(f7,data=data)[c('estimate','p.value')])
+```
+
+```{r}
+(Mann_Whitnery=wilcox.test(f7,data=data,exact=F)['p.value'])
+```
+
+# MODELO LINEAL MULTIPLE
+
+```{r}
+data <- data %>%
+  mutate(CAM_FACTOR = case_when(
+    cam == "unicameral" ~ 0,
+    cam == "bicameral" ~ 1),
+    CAM_FACTOR = as.factor(CAM_FACTOR))
+
+# Segundo caso: usar fastdummies
+library(fastDummies)
+```
+
+```{r}
+library(dplyr)
+library(fastDummies)
+data = dummy_cols(data,  select_columns = c("cam"))
+data = data %>% rename(UNICAM=cam_unicameral, BICAM=cam_bicameral)
+```
+
+## GENERAL
+
+```{r}
+modelo1 = lm(cal_vida ~ reg_pol - 1 + CAM_FACTOR +  pobla + PBI_perk + tasa_infla + div_admi, data = data)
+summary(modelo1)
+```
+
+### General con bicameralidad
+
+```{r}
+modelo2 = lm(cal_vida ~ reg_pol - 1 + BICAM +  pobla + PBI_perk + tasa_infla + div_admi, data = data)
+summary(modelo2)
+```
+
+### General con unicameralidad
+
+```{r}
+modelo3 = lm(cal_vida ~ reg_pol - 1 + UNICAM +  pobla + PBI_perk + tasa_infla + div_admi, data = data)
+summary(modelo3)
+```
+
+## CATEGÓRICAS
+
+```{r}
+modelo_lm1 <- lm(cal_vida ~ reg_pol - 1 + CAM_FACTOR, data = data)
+
+summary(modelo_lm1)
+```
+
+### Unicameral
+
+```{r}
+modelo_lm2 <- lm(cal_vida ~ reg_pol - 1 + UNICAM, data = data)
+
+summary(modelo_lm2)
+```
+
+### Bicameral
+
+```{r}
+modelo_lm3 <- lm(cal_vida ~ reg_pol - 1 + BICAM, data = data)
+
+summary(modelo_lm3)
+```
+
+## NUMÉRICAS
+
+### Población y división administrativa (territorio)
+
+```{r}
+modelo_lm_num1 = lm(cal_vida ~  pobla + div_admi, data = data)
+summary(modelo_lm_num1)
+```
+
+### Aspectos económicos
+
+```{r}
+modelo_lm_num2 = lm(cal_vida ~ PBI_perk + tasa_infla, data = data)
+summary(modelo_lm_num2)
+```
+
+
+
+
+
+
+
+
+
+
+
