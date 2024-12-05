@@ -1,0 +1,390 @@
+---
+title: "Exposición Final"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r}
+library(rio)
+data=import("data_final.xlsx")
+```
+
+Análisis Factorial (EFA) {data-icon="fa-sharp-duotone fa-solid fa-location-dot"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+Posterior a la realización del gráfico de correlación se realizó el corest.barlett y is.singular.matrix(cor_matrix). En ambos casos, el resultado fue FALSE por lo que se procedió con la evaluación de factores.  
+
+### Gráfico de correlación 
+
+```{r}
+datos_std <- as.data.frame(data[, c("i_edu", "i_emple","i_tec","i_vivi","i_salud")])
+library(corrplot)
+cor_matrix <- cor(datos_std)
+corrplot(cor_matrix, 
+         method = "color", 
+         col = colorRampPalette(c("white", "purple", "pink"))(200), 
+         addCoef.col = "black",  # Números en color negro
+         tl.col = "black",       # Etiquetas en color negro
+         cl.lim = c(-1, 1),      # Escala de colores entre -1 y 1
+         number.cex = 0.7)       # Tamaño de los números
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Evaluación de cantidad de factores recomendados
+
+```{r}
+library(psych)
+fa_parallel <- fa.parallel(datos_std, fm = "ml", fa = "fa")
+```
+
+### Chart C
+
+```{r}
+library(ggplot2)
+data |>
+  ggplot(aes(x = PAIS, y = cal_vida, fill = factor(PAIS))) +
+  geom_bar(stat = "identity", color = "blue", width = 0.6) + 
+  ggtitle("Puntaje de calidad de vida según país") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8)) +
+  viridis::scale_fill_viridis(discrete = TRUE) +  
+  theme(legend.position = "none")
+
+```
+
+
+Estadística descriptiva {data-icon="fa-sharp-duotone fa-solid fa-location-dot"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Variable dependiente: calidad de vida
+
+```{r}
+library(ggplot2)
+
+ggplot(data, aes(x = cal_vida)) +
+  geom_histogram(binwidth = 0.5, color = "black", fill = "skyblue", alpha = 0.7) + # Relleno y bordes
+  geom_vline(xintercept = 0.5559, color = "red", linetype = "dashed", size = 1.2) + # Línea de mediana
+  geom_vline(xintercept = 0.1380, color = "green", linetype = "dashed", size = 1.2) + # Línea de media
+  xlab("Puntaje de calidad de vida") +
+  ylab("Frecuencia") +
+  theme_minimal(base_size = 14) + # Tema con fondo claro
+  theme(
+    panel.grid.major = element_line(color = "gray80"), # Líneas de rejilla más visibles
+    panel.grid.minor = element_blank(), # Elimina rejillas menores
+    axis.text = element_text(color = "black"), # Texto de ejes
+    axis.title = element_text(face = "bold") # Texto de título en negrita
+  )
+
+```
+
+### Variables independientes categóricas: Regimen político
+```{r}
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+data_summary <- as.data.frame(table(data$reg_pol))
+# Cambiar el nombre de la columna 'old_name' a 'new_name'
+colnames(data_summary)[colnames(data_summary) == "Var1"] <- "Regimen_politico"
+
+# Calcular los porcentajes
+data_summary <- data_summary %>%
+  mutate(percentage = Freq / sum(Freq) * 100)
+
+ggplot(data_summary, aes(x = "", y = Freq, fill = Regimen_politico)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y") +
+  geom_label_repel(aes(label = paste0(round(percentage, 1), "%")),
+                   position = position_stack(vjust = 0.5),
+                   size = 4,
+                   show.legend = FALSE) +  # Elimina las etiquetas duplicadas en la leyenda
+  labs(title = "Proporción de los regímenes políticos") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Variables independientes numéricas
+
+```{r}
+library(dplyr)
+library(kableExtra)
+library(DT)
+estadisticas <- data |>
+  summarise(
+    Minimo = sapply(select(data, pobla, PBI_perk, tasa_infla, div_admi),min,na.rm=T),
+    Maximo = sapply(select(data, pobla, PBI_perk, tasa_infla, div_admi),max,na.rm=T),
+    Media = round(sapply(select(data, pobla, PBI_perk, tasa_infla, div_admi),mean,na.rm=T),2),
+    Mediana = sapply(select(data, pobla, PBI_perk, tasa_infla, div_admi),median,na.rm=T),
+    Des.estandar = round(sapply(select(data, pobla, PBI_perk, tasa_infla, div_admi),sd,na.rm=T),2))
+
+rownames(estadisticas) <- c("Población", "PBI per cápita", "Tasa de inflación", "División administrativa territorial")
+
+datatable(estadisticas)
+
+```
+
+
+### Variables independientes: estructura legislativa (cam)
+
+```{r}
+library(ggplot2)
+# Crear un gráfico de barras dinámico
+ggplot(data, aes(x = cam, fill = cam)) +
+  geom_bar(alpha = 0.8, color = "black", width = 0.7) +  # Efecto de transparencia
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.3, size = 4, fontface = "bold") + # Etiquetas dinámicas
+  labs(
+    title = "Distribución de la estructura legislativa de los países",
+    x = "Tipo de estructura legislativa",
+    y = "Frecuencia"
+  ) +
+  theme_minimal(base_size = 15) +  # Tema moderno con texto más grande
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 18),  # Título centrado
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Texto en eje X inclinado
+    legend.position = "none"  # Oculta la leyenda
+  ) +
+  scale_fill_brewer(palette = "Paired")  # Paleta de colores dinámica
+```
+
+
+CLÚSTERS {data-icon="fa-sharp-duotone fa-solid fa-location-dot"}
+===================================== 
+
+
+Column {data-width=450}
+-----------------------------------------------------------------------
+
+### PAM
+
+```{r}
+dataClus=data[,c(12,16, 17, 18, 19)]
+row.names(dataClus)=data$PAIS
+
+library(cluster)
+g.dist = daisy(dataClus, metric="gower")
+
+library(factoextra)
+fviz_nbclust(dataClus, pam,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F)
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### JERÁRQUICA: AGNES
+
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "agnes")
+```
+
+### JERARQUICA: DIANA
+
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "diana")
+```
+
+
+CORRELACIONES NUMERICAS {data-icon="fa-sharp-duotone fa-solid fa-location-dot"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Calidad de vida y población
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+base1 <- ggplot(data = data, aes(x = cal_vida, y = pobla))
+
+scatter <- base1 + 
+  geom_point(aes(color = PAIS), size = 2)  
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  # Etiquetas de color
+
+scatterText + theme(legend.position = "none")
+
+# Pearson p - value: $p.value  0.6331357
+# Spearman p - value 0.7939184
+```
+
+### Calidad de vida y PBI per cápita
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+base2 <- ggplot(data = data, aes(x = cal_vida, y = PBI_perk))
+
+scatter <- base2 + 
+  geom_point(aes(color = PAIS), size = 2) 
+
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  
+scatterText + theme(legend.position = "none")
+
+# Pearson p - value 0.003600121 y estimaod de correlación: 0.4251459 
+# Spearman p - value 7.246962e-05 y estimado de correlacion es 0.5563132 
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Calidad de vida y tasa de inflación
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+base3 <- ggplot(data = data, aes(x = cal_vida, y = tasa_infla))
+
+
+scatter <- base3 + 
+  geom_point(aes(color = PAIS), size = 2)  
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  
+scatterText + theme(legend.position = "none")
+
+# Pearson 0.3367459
+# Spearman 0.8561482
+
+```
+
+### Calidad de vida y división administrativa territorial
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+base4 <- ggplot(data = data, aes(x = cal_vida, y = div_admi))
+
+
+scatter <- base4 + 
+  geom_point(aes(color = PAIS), size = 2)  
+scatterText <- scatter + 
+  geom_text_repel(aes(label = PAIS, color = PAIS), size = 3)  
+scatterText + theme(legend.position = "none")
+
+# Pearson 0.7467087
+# Spearman 0.2291148
+
+```
+
+CORRELACIONES CATEGÓRICAS {data-icon="fa-sharp-duotone fa-solid fa-location-dot"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Calidad de vida y regimen político
+
+```{r}
+library(ggplot2)
+library(viridis)
+
+base5 <- ggplot(data = data, aes(x = reg_pol, y = cal_vida, fill = reg_pol, color = reg_pol))
+
+base5 + 
+  geom_boxplot(notch = TRUE, alpha = 0.5) +  
+  geom_jitter(size = 0.4, alpha = 0.9, width = 0.2) + 
+  scale_fill_viridis(discrete = TRUE, option = "B", alpha = 0.5) +  
+  scale_color_viridis(discrete = TRUE, option = "B") +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none")
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Calidad de vida y tasa de inflación
+
+```{r}
+library(ggplot2)
+library(RColorBrewer)
+
+colores_fill <- c("lightblue", "lightyellow") 
+colores_bordes <- c("darkblue", "gold")  
+
+base6 <- ggplot(data = data, aes(x = cam, y = cal_vida, fill = cam))
+
+base6 + 
+  geom_boxplot(notch = TRUE, aes(color = cam), alpha = 0.5, size = 0.5) + 
+  geom_jitter(aes(color = cam), size = 2, alpha = 0.9) +  
+  scale_fill_manual(values = colores_fill) +  
+  scale_color_manual(values = colores_bordes) +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none")
+
+# Prueba T: 0.2091942
+# Mann Whitnnery 0.2076077 
+```
+
+### Calidad de vida y división administrativa territorial
+
+```{r}
+library(ggplot2)
+
+base7 <- ggplot(data = data, aes(x = CONTINENTE, y = cal_vida))
+
+base7 + 
+  geom_boxplot(notch = TRUE, aes(fill = CONTINENTE, color = CONTINENTE), alpha = 0.6, size = 0.5) +  
+  geom_jitter(aes(color = CONTINENTE), size = 1, alpha = 0.9, width = 0.2, stroke = 1.2) +  
+  scale_fill_manual(values = c("pink", "plum")) +  
+  scale_color_manual(values = c("#D5006D", "#6A1B9A")) +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") 
+
+# Prueba T 0.0021609
+# Mann Whitnery   0.0005718317
+```
+
+REGRESIONES {data-icon="fa-sharp-duotone fa-solid fa-location-dot"}
+===================================== 
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Modelo general: linealidad
+
+```{r}
+modelo1 = lm(cal_vida ~ reg_pol - 1 + CAM_FACTOR +  pobla + PBI_perk + tasa_infla + div_admi, data = data)
+plot(modelo1, 1)
+# Que la raya sea horizontal y cercano a 0
+```
+
+### Modelo general: homocedasticidad
+
+```{r}
+plot(modelo1, 3)
+# Se rechaza que haya homcedasticidad pues al realizar la prueba de Breusch - Pagan el resultado del p-value fue de	0.4402323. 
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Modelo general: normalidad de residuos
+
+```{r}
+# puntos cerca a la diagonal?
+plot(modelo1, 2) #resultado según Shapiro - Wilk en el p - value es de 0.002 por lo cual los datos no son normales
+```
+
+
+
+
